@@ -1,6 +1,3 @@
-`timescale 1ns / 1ns
-
-
 package verif;
 
 `include "verif.svh"
@@ -79,7 +76,7 @@ class plusargs;
         return m_map;
     endfunction
 
-    function string get_str(input string key, string def="__NONE__");
+    function string get_str(input string key, string def = "__NONE__");
         return m_map.exists(key) ? m_map[key] : def;
     endfunction
 
@@ -87,7 +84,7 @@ class plusargs;
         return m_map.exists(key) ? 1'b1       : 1'b0;
     endfunction
 
-    function int get_int(input string key, int def=0, int radix=10);
+    function int get_int(input string key, int def = 0, int radix = 10);
         string val = get_str(key, "");
         int    ret;
 
@@ -129,6 +126,8 @@ class logger;
         return m_inst;
     endfunction
 
+    int m_log_lvl;
+
     int m_num_info;
     int m_num_warn;
     int m_num_err;
@@ -139,6 +138,8 @@ class logger;
 
     function new();
         plusargs args = new("err.");
+
+        m_log_lvl  =  args.get_int("log", 2);
 
         m_num_info =  0;
         m_num_warn =  0;
@@ -196,14 +197,14 @@ endclass
 
 class wrapper_base extends object;
 
-    virtual function object get(input logic ran=1'b0);
+    virtual function object get(input logic ran = 1'b0);
         return null;
     endfunction
 
 endclass
 
 
-class wrapper #(type T=object) extends wrapper_base;
+class wrapper #(type T = object) extends wrapper_base;
 
     typedef wrapper #(T) type_t;
 
@@ -223,7 +224,7 @@ class wrapper #(type T=object) extends wrapper_base;
     endfunction
 
     // spawn support
-    virtual function object get(input logic ran=1'b0);
+    virtual function object get(input logic ran = 1'b0);
         T val = new();
 
         if (ran) begin
@@ -256,7 +257,7 @@ class spawner extends object;
     endfunction
 
     // spawn support
-    function object get(input string str, logic ran=1'b0);
+    function object get(input string str, logic ran = 1'b0);
         if (!m_map.exists(str)) begin
            `err($sformatf("%s is not registered", str), "spawner");
             return null;
@@ -318,7 +319,7 @@ plugins g_plugins = plugins::get_inst();
 //
 // database
 
-class database #(type T=int) extends object;
+class database #(type T = int) extends object;
 
     static T m_map [string];
 
@@ -339,54 +340,94 @@ endclass
 //
 // memory
 
-class memory #(A=32, D=8) extends object;
-
-    string m_name;
+class memory #(A = 32, D = 8) extends object;
 
     // mem core
     logic [D-1:0] m_map [logic [A-1:0]];
+    logic [D-1:0] m_nil;
 
-    function new(input string name);
-        m_name = name;
+    function new(input string mod);
+        m_mod = mod;
+        m_nil = {D{1'b0}};
     endfunction
 
     function bit chk(input logic [A-1:0] a);
         return m_map.exists(a);
     endfunction
 
-    function bit [D*1-1:0] get_byte(input logic [A-1:0] a);
-        if (m_map.exists(a))
-            return  m_map[a];
-        else
-            return {D{1'b0}};
+    function bit [D*1-1:0] get_b(input logic [A-1:0] a, bit v = 1'b1);
+        bit [D*1-1:0] d =  m_map.exists(a) ? m_map[a] : m_nil;
+        if (v)
+           `info($sformatf("[%x] -> %x", a, d));
+
+        return d;
     endfunction
 
-    function bit [D*2-1:0] get_half(input logic [A-1:0] a);
-        return {get_byte(a + {{A-1{1'b0}}, 1'd1}),
-                get_byte(a + {{A-1{1'b0}}, 1'd0})};
+    function bit [D*2-1:0] get_h(input logic [A-1:0] a);
+        bit [D*2-1:0] d = {get_b(a + {{A-1{1'b0}}, 1'd1}, 1'b0),
+                           get_b(a + {{A-1{1'b0}}, 1'd0}, 1'b0)};
+       `info($sformatf("[%x] -> %x", a, d));
+
+        return d;
     endfunction
 
-    function bit [D*4-1:0] get_word(input logic [A-1:0] a);
-        return {get_byte(a + {{A-2{1'b0}}, 2'd3}),
-                get_byte(a + {{A-2{1'b0}}, 2'd2}),
-                get_byte(a + {{A-2{1'b0}}, 2'd1}),
-                get_byte(a + {{A-2{1'b0}}, 2'd0})};
+    function bit [D*4-1:0] get_w(input logic [A-1:0] a);
+        bit [D*4-1:0] d = {get_b(a + {{A-2{1'b0}}, 2'd3}, 1'b0),
+                           get_b(a + {{A-2{1'b0}}, 2'd2}, 1'b0),
+                           get_b(a + {{A-2{1'b0}}, 2'd1}, 1'b0),
+                           get_b(a + {{A-2{1'b0}}, 2'd0}, 1'b0)};
+       `info($sformatf("[%x] -> %x", a, d));
+
+        return d;
     endfunction
 
-    function void set_byte(input logic [A-1:0] a, logic [D*1-1:0] val);
-        m_map[a + {{A-1{1'b0}}, 1'd0}] = val;
+    function bit [D*8-1:0] get_d(input logic [A-1:0] a);
+        bit [D*8-1:0] d = {get_b(a + {{A-3{1'b0}}, 3'd7}, 1'b0),
+                           get_b(a + {{A-3{1'b0}}, 3'd6}, 1'b0),
+                           get_b(a + {{A-3{1'b0}}, 3'd5}, 1'b0),
+                           get_b(a + {{A-3{1'b0}}, 3'd4}, 1'b0),
+                           get_b(a + {{A-3{1'b0}}, 3'd3}, 1'b0),
+                           get_b(a + {{A-3{1'b0}}, 3'd2}, 1'b0),
+                           get_b(a + {{A-3{1'b0}}, 3'd1}, 1'b0),
+                           get_b(a + {{A-3{1'b0}}, 3'd0}, 1'b0)};
+       `info($sformatf("[%x] -> %x", a, d));
+
+        return d;
     endfunction
 
-    function void set_half(input logic [A-1:0] a, logic [D*2-1:0] val);
-        m_map[a + {{A-1{1'b0}}, 1'd1}] = val[D*1+:D];
-        m_map[a + {{A-1{1'b0}}, 1'd0}] = val[D*0+:D];
+    function void set_b(input logic [A-1:0] a, logic [D*1-1:0] d);
+       `info($sformatf("[%x] <- %x", a, d));
+
+        m_map[a + {{A-1{1'b0}}, 1'd0}] = d;
     endfunction
 
-    function void set_word(input logic [A-1:0] a, logic [D*4-1:0] val);
-        m_map[a + {{A-2{1'b0}}, 2'd3}] = val[D*3+:D];
-        m_map[a + {{A-2{1'b0}}, 2'd2}] = val[D*2+:D];
-        m_map[a + {{A-2{1'b0}}, 2'd1}] = val[D*1+:D];
-        m_map[a + {{A-2{1'b0}}, 2'd0}] = val[D*0+:D];
+    function void set_h(input logic [A-1:0] a, logic [D*2-1:0] d);
+       `info($sformatf("[%x] <- %x", a, d));
+
+        m_map[a + {{A-1{1'b0}}, 1'd1}] = d[D*1+:D];
+        m_map[a + {{A-1{1'b0}}, 1'd0}] = d[D*0+:D];
+    endfunction
+
+    function void set_w(input logic [A-1:0] a, logic [D*4-1:0] d);
+       `info($sformatf("[%x] <- %x", a, d));
+
+        m_map[a + {{A-2{1'b0}}, 2'd3}] = d[D*3+:D];
+        m_map[a + {{A-2{1'b0}}, 2'd2}] = d[D*2+:D];
+        m_map[a + {{A-2{1'b0}}, 2'd1}] = d[D*1+:D];
+        m_map[a + {{A-2{1'b0}}, 2'd0}] = d[D*0+:D];
+    endfunction
+
+    function void set_d(input logic [A-1:0] a, logic [D*8-1:0] d);
+       `info($sformatf("[%x] <- %x", a, d));
+
+        m_map[a + {{A-3{1'b0}}, 3'd7}] = d[D*7+:D];
+        m_map[a + {{A-3{1'b0}}, 3'd6}] = d[D*6+:D];
+        m_map[a + {{A-3{1'b0}}, 3'd5}] = d[D*5+:D];
+        m_map[a + {{A-3{1'b0}}, 3'd4}] = d[D*4+:D];
+        m_map[a + {{A-3{1'b0}}, 3'd3}] = d[D*3+:D];
+        m_map[a + {{A-3{1'b0}}, 3'd2}] = d[D*2+:D];
+        m_map[a + {{A-3{1'b0}}, 3'd1}] = d[D*1+:D];
+        m_map[a + {{A-3{1'b0}}, 3'd0}] = d[D*0+:D];
     endfunction
 
 endclass
