@@ -112,9 +112,10 @@ plusargs g_plusargs = plusargs::get_inst();
 
 class logger;
 
-    static const int INFO = 0;
-    static const int WARN = 1;
-    static const int ERR  = 2;
+    static const int DBG  = -1;
+    static const int INFO =  0;
+    static const int WARN =  1;
+    static const int ERR  =  2;
 
     static logger m_inst;
 
@@ -127,7 +128,9 @@ class logger;
     endfunction
 
     int m_log_lvl;
+    int m_log_lvls [$];
 
+    int m_num_dbg;
     int m_num_info;
     int m_num_warn;
     int m_num_err;
@@ -141,6 +144,7 @@ class logger;
 
         m_log_lvl  =  args.get_int("log", 2);
 
+        m_num_dbg  =  0;
         m_num_info =  0;
         m_num_warn =  0;
         m_num_err  =  0;
@@ -152,6 +156,10 @@ class logger;
 
     function void log(input int ver, string str, string mod);
         case (ver)
+            DBG:  begin
+                $display("(%d) [%s] D: %s", $time(), mod, str);
+                m_num_dbg++;
+            end
             INFO: begin
                 $display("(%d) [%s] I: %s", $time(), mod, str);
                 m_num_info++;
@@ -351,14 +359,18 @@ class memory #(A = 32, D = 8) extends object;
         m_nil = {D{1'b0}};
     endfunction
 
-    function bit chk(input logic [A-1:0] a);
-        return m_map.exists(a);
+    function bit chk(input logic [A-1:0] a, int n = 1);
+        for (int i = 0; i < n; i++)
+            if (!m_map.exists(a))
+                return 1'b0;
+
+        return 1'b1;
     endfunction
 
     function bit [D*1-1:0] get_b(input logic [A-1:0] a, bit v = 1'b1);
         bit [D*1-1:0] d =  m_map.exists(a) ? m_map[a] : m_nil;
         if (v)
-           `info($sformatf("[%x] -> %x", a, d));
+           `dbg($sformatf("[%x] -> %x", a, d));
 
         return d;
     endfunction
@@ -366,7 +378,7 @@ class memory #(A = 32, D = 8) extends object;
     function bit [D*2-1:0] get_h(input logic [A-1:0] a);
         bit [D*2-1:0] d = {get_b(a + {{A-1{1'b0}}, 1'd1}, 1'b0),
                            get_b(a + {{A-1{1'b0}}, 1'd0}, 1'b0)};
-       `info($sformatf("[%x] -> %x", a, d));
+       `dbg($sformatf("[%x] -> %x", a, d));
 
         return d;
     endfunction
@@ -376,7 +388,7 @@ class memory #(A = 32, D = 8) extends object;
                            get_b(a + {{A-2{1'b0}}, 2'd2}, 1'b0),
                            get_b(a + {{A-2{1'b0}}, 2'd1}, 1'b0),
                            get_b(a + {{A-2{1'b0}}, 2'd0}, 1'b0)};
-       `info($sformatf("[%x] -> %x", a, d));
+       `dbg($sformatf("[%x] -> %x", a, d));
 
         return d;
     endfunction
@@ -390,26 +402,26 @@ class memory #(A = 32, D = 8) extends object;
                            get_b(a + {{A-3{1'b0}}, 3'd2}, 1'b0),
                            get_b(a + {{A-3{1'b0}}, 3'd1}, 1'b0),
                            get_b(a + {{A-3{1'b0}}, 3'd0}, 1'b0)};
-       `info($sformatf("[%x] -> %x", a, d));
+       `dbg($sformatf("[%x] -> %x", a, d));
 
         return d;
     endfunction
 
     function void set_b(input logic [A-1:0] a, logic [D*1-1:0] d);
-       `info($sformatf("[%x] <- %x", a, d));
+       `dbg($sformatf("[%x] <- %x", a, d));
 
         m_map[a + {{A-1{1'b0}}, 1'd0}] = d;
     endfunction
 
     function void set_h(input logic [A-1:0] a, logic [D*2-1:0] d);
-       `info($sformatf("[%x] <- %x", a, d));
+       `dbg($sformatf("[%x] <- %x", a, d));
 
         m_map[a + {{A-1{1'b0}}, 1'd1}] = d[D*1+:D];
         m_map[a + {{A-1{1'b0}}, 1'd0}] = d[D*0+:D];
     endfunction
 
     function void set_w(input logic [A-1:0] a, logic [D*4-1:0] d);
-       `info($sformatf("[%x] <- %x", a, d));
+       `dbg($sformatf("[%x] <- %x", a, d));
 
         m_map[a + {{A-2{1'b0}}, 2'd3}] = d[D*3+:D];
         m_map[a + {{A-2{1'b0}}, 2'd2}] = d[D*2+:D];
@@ -418,7 +430,7 @@ class memory #(A = 32, D = 8) extends object;
     endfunction
 
     function void set_d(input logic [A-1:0] a, logic [D*8-1:0] d);
-       `info($sformatf("[%x] <- %x", a, d));
+       `dbg($sformatf("[%x] <- %x", a, d));
 
         m_map[a + {{A-3{1'b0}}, 3'd7}] = d[D*7+:D];
         m_map[a + {{A-3{1'b0}}, 3'd6}] = d[D*6+:D];

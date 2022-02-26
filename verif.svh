@@ -5,6 +5,12 @@
 //
 // logger
 
+`define  dbg(str, mod=m_mod)                                     \
+    do                                                           \
+        if (verif::g_logger::m_log_lvl <= verif::g_logger::DBG)  \
+            verif::g_logger.log(verif::logger::DBG,  str, mod);  \
+    while (0)
+
 `define info(str, mod=m_mod)                                     \
     do                                                           \
         if (verif::g_logger::m_log_lvl <= verif::g_logger::INFO) \
