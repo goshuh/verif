@@ -367,6 +367,10 @@ class memory #(A = 32, D = 8) extends object;
         return 1'b1;
     endfunction
 
+    function void clr();
+        m_map.delete();
+    endfunction
+
     function bit [D*1-1:0] get_b(input logic [A-1:0] a, bit v = 1'b1);
         bit [D*1-1:0] d =  m_map.exists(a) ? m_map[a] : m_nil;
         if (v)
